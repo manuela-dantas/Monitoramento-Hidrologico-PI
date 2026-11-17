@@ -7,5 +7,6 @@ urlpatterns = [
     path('stations', views.stations),
     path('stations/<str:station_id>/summary', views.station_summary),
     path('stations/<str:station_id>/series', views.station_series),
+    path('stations/<str:station_id>/quality', views.station_quality),
     re_path(r'^(?P<unknown_path>.*)$', views.not_found),
 ]

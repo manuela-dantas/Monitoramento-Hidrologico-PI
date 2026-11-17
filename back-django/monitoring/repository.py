@@ -1,5 +1,7 @@
 """Consultas ao banco. As views não acessam os models diretamente."""
-from django.db.models import Max
+from datetime import timedelta
+
+from django.db.models import Avg, Count, Max, Min, Sum
 
 from .models import Observation, Station
 from .utils import to_iso_utc
@@ -70,3 +72,30 @@ def get_series(station_id, metric, start, end):
 
 def station_exists(station_id):
     return Station.objects.filter(id=station_id, active=True).exists()
+
+
+def get_quality(station_id, metric, start, end):
+    existing = set(
+        Observation.objects.filter(
+            station_id=station_id,
+            metric=metric,
+            observed_at__gte=start,
+            observed_at__lte=end,
+        ).values_list('observed_at', flat=True)
+    )
+
+    expected = []
+    current = start
+    while current <= end:
+        expected.append(current)
+        current += timedelta(hours=1)
+
+    missing = [to_iso_utc(t) for t in expected if t not in existing]
+    found = len(expected) - len(missing)
+    return {
+        'expected_points': len(expected),
+        'found_points': found,
+        'missing_points': len(missing),
+        'completeness_pct': round(100 * found / len(expected), 1),
+        'missing_timestamps': missing,
+    }
