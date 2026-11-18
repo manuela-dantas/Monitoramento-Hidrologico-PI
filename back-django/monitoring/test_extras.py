@@ -1,11 +1,31 @@
 from django.core.management import call_command
 from django.test import TestCase
 
+from .models import Observation
+
 
 class ExtrasTests(TestCase):
     @classmethod
     def setUpTestData(cls):
-        call_command('seed', verbosity=0)
+        call_command('seed', '--com-lacunas', verbosity=0)
+
+    # --- 17.1 seed com lacunas ---
+
+    def test_seed_com_lacunas_tem_menos_observacoes(self):
+        self.assertLess(Observation.objects.count(), 438)
+
+    def test_seed_com_lacunas_e_idempotente(self):
+        antes = Observation.objects.count()
+        call_command('seed', '--com-lacunas', verbosity=0)
+        self.assertEqual(Observation.objects.count(), antes)
+
+    def test_limpar_recria_a_amostra_completa(self):
+        call_command('seed', '--limpar', verbosity=0)
+        self.assertEqual(Observation.objects.count(), 438)
+
+    def test_resumo_mostra_horarios_diferentes_por_metrica(self):
+        latest = self.client.get('/api/stations/EST-02/summary').json()['latest']
+        self.assertNotEqual(latest['level_observed_at'], latest['rain_observed_at'])
 
     # --- 17.2 relatório de qualidade ---
 

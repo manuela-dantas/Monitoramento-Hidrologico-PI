@@ -13,12 +13,34 @@ STATIONS = [
     {'id': 'EST-03', 'name': 'Estação Campo Alto', 'river': 'Rio do Campo', 'municipality': 'Campo Alto'},
 ]
 
+def is_gap(index, station_index, metric):
+    """Regras fixas de lacunas, para que o resultado seja sempre o mesmo.
+
+    - Todas as estações: sensor desligado cerca de 1 vez a cada 10 horas.
+    - EST-02: pluviômetro parado nas 2 últimas horas (o nível continua).
+    """
+    if (index + station_index * 3) % 10 == 7:
+        return True
+    return metric == 'rain' and station_index == 1 and index >= 71
 
 class Command(BaseCommand):
     help = 'Carrega estações e observações sintéticas (pode ser executado várias vezes).'
 
+    def add_arguments(self, parser):
+        parser.add_argument(
+            '--com-lacunas', action='store_true',
+            help='Pula alguns horários para simular falhas de sensor.',
+        )
+        parser.add_argument(
+            '--limpar', action='store_true',
+            help='Apaga todas as observações antes de carregar.',
+        )
     @transaction.atomic
     def handle(self, *args, **options):
+        if options['limpar']:
+            apagadas, _ = Observation.objects.all().delete()
+            self.stdout.write(f'{apagadas} observações apagadas.')
+
         for data in STATIONS:
             Station.objects.get_or_create(id=data['id'], defaults=data)
 
@@ -32,14 +54,14 @@ class Command(BaseCommand):
                     rain = 0.4 + ((index + station_index) % 4) * 0.35
                 else:
                     rain = 0
-                observations.append(Observation(
-                    station_id=data['id'], metric='level', observed_at=observed_at,
-                    value=round(level, 2), unit='m',
-                ))
-                observations.append(Observation(
-                    station_id=data['id'], metric='rain', observed_at=observed_at,
-                    value=round(rain, 2), unit='mm/h',
-                ))
+                values = [('level', round(level, 2), 'm'), ('rain', round(rain, 2), 'mm/h')]
+                for metric, value, unit in values:
+                    if options['com_lacunas'] and is_gap(index, station_index, metric):
+                        continue
+                    observations.append(Observation(
+                        station_id=data['id'], metric=metric, observed_at=observed_at,
+                        value=value, unit=unit,
+                    ))
 
         # ignore_conflicts=True vira INSERT OR IGNORE: a UNIQUE impede duplicatas.
         Observation.objects.bulk_create(observations, ignore_conflicts=True)
