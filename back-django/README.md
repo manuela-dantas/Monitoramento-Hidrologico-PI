@@ -27,6 +27,24 @@ python manage.py test
 `\harness\check.ps1` # (com o servidor ligado)
 ```
 
+## Painel administrativo
+
+O projeto possui um painel administrativo disponibilizado pelo Django em:
+
+[http://localhost:3000/admin/](http://localhost:3000/admin/)
+
+O acesso exige um usuário e uma senha cadastrados com o comando:
+
+```powershell
+python manage.py createsuperuser
+```
+
+Pelo painel, é possível consultar, cadastrar, editar e excluir estações e observações, além de ativar ou desativar estações.
+
+O painel é uma ferramenta interna para administração e desenvolvimento local. Ele não representa uma autenticação da API, que continua pública e sem exigência de login.
+
+O Django também utiliza tabelas próprias para gerenciar usuários, grupos, permissões e sessões, como auth_user, auth_group, auth_permission e django_session. Essas tabelas são criadas pelas migrações do próprio Django.
+
 ## Rotas
 | Método | Rota | Parâmetros | Descrição |
 |--------|------|-----------|-----------|
@@ -34,6 +52,7 @@ python manage.py test
 | GET | `/api/stations` | – | Estações ativas, em ordem alfabética, com a hora da última leitura |
 | GET | `/api/stations/{id}/summary` | id (caminho) | Dados da estação e a leitura mais recente de nível e de chuva |
 | GET | `/api/stations/{id}/series` | metric: level (padrão) ou rain; hours: inteiro de 1 a 72 (padrão 24) | Histórico de uma métrica numa janela solicitada |
+| GET | `/api/stations/{id}/quality` | metric: level ou rain; hours: inteiro de 1 a 72 (padrão 24) | Relatório de qualidade e completude dos dados |
 
 #### `GET	/api/health`
 ```json
@@ -127,6 +146,29 @@ python manage.py test
 }
 
 ```
+#### `GET /api/stations/{id}/quality`
+
+Exemplo de consulta: `GET /api/stations/EST-01/quality?metric=rain&hours=12`
+
+```json
+{
+  "data_mode": "simulation",
+  "station_id": "EST-01",
+  "metric": "rain",
+  "interval_minutes": 60,
+  "from": "2026-11-17T11:00:00Z",
+  "to": "2026-11-17T23:00:00Z",
+  "expected_points": 13,
+  "found_points": 11,
+  "missing_points": 2,
+  "completeness_pct": 84.6,
+  "missing_timestamps": [
+    "2026-11-17T22:00:00Z",
+    "2026-11-17T23:00:00Z"
+  ]
+}
+```
+
 ## Banco de dados
 ```text
 ┌────────────────────────┐          ┌──────────────────────────────────┐
@@ -171,7 +213,8 @@ Todo erro segue o formato `{"error": {"code": "...", "message": "..."}}`.
 - Django no lugar de Express: a tarefa propôs reimplementar o starter em Node.js/Express usando Python + Django, mantendo o mesmo contrato da API. Por isso o `harness/check.ps1` original funciona sem alterações. O Django substitui as peças do starter: `views.py` + `urls.py` fazem o papel do Express, `models.py` + migrations o do `db.js`/`schema.sql`, e o comando `seed` o do `seed.js`. As consultas são parametrizadas pelo ORM, protegendo contra SQL injection, e `views.py` fica separado de `repository.py`.
 - Datas gravadas como datetime UTC e formatadas com Z na saída.
 - O seed usa a hora atual: rodar em outra hora adiciona horários novos, sem duplicar os antigos. A primeira execução cria 438 observações (3 estações × 73 horários × 2 métricas). Se o seed ficar mais de 72 horas sem rodar, as séries voltam vazias.
-- Sem autenticação, previsão ou sensores reais (fora do escopo).
+- A API não possui autenticação, conforme o escopo do desafio. O painel administrativo do Django possui autenticação própria e é destinado à administração local.
+- Sem previsão ou sensores reais.
 
 ## Próximos passos
 - Paginação e filtros por intervalo de datas
@@ -179,4 +222,4 @@ Todo erro segue o formato `{"error": {"code": "...", "message": "..."}}`.
 - Docker e docker-compose
 - Testes de carga
 - Documentação interativa (OpenAPI + Swagger UI)
-- Relatório de qualidade dos dados e exportação da série em CSV
+- Exportação da série em CSV
