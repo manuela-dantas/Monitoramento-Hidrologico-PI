@@ -8,6 +8,7 @@ Python 3.10+ e pip.
 
 Como rodar (PowerShell)
 ```powershell
+cd .\back-django\
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
@@ -16,6 +17,11 @@ python manage.py migrate
 python manage.py seed
 python manage.py runserver 3000
 ```
+Se o PowerShell bloquear a ativação ("execution of scripts is disabled"), rode antes:
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+```
+
 Confira em <a href="http://localhost:3000/api/health">http://localhost:3000/api/health</a>. 
 
 
